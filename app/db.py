@@ -2,7 +2,7 @@ import redis
 
 client = None
 
-def get_redis_client():
+def get_db():
 
     global client
 
@@ -20,9 +20,6 @@ def get_redis_client():
             
         except Exception as e:
             raise Exception('AN ERROR HAS OCURRED', e)
-        
-def get_db():
-    return get_redis_client()
         
 
 # test = get_db()
