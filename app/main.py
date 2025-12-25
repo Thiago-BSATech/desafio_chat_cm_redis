@@ -1,13 +1,11 @@
 from fastapi import FastAPI
 
 from app.db import get_db
-from app.websockets.chat_private_ws import ChatPrivate
-from app.websockets.chat_public_ws import ChatPublic
+from app.chats_ws import ChatRoute
 
 app = FastAPI(title='DESAFIO CHAT COM REDIS')
 
-app.include_router(ChatPublic)
-app.include_router(ChatPrivate)
+app.include_router(ChatRoute)
 
 
 @app.on_event("startup")
