@@ -8,6 +8,11 @@ para rodar:
 ## O que é?
 O Redis (Remote Dictionary Server) é um banco de dados em memória, de código aberto, usado principalmente como cache, armazenamento de dados em tempo real e sistema de mensagens. Ele é extremamente rápido porque mantém os dados na memória RAM (em vez de gravar no disco como bancos tradicionais).
 
+Ele é extremamente rápido. Armazena dados no formato de chave e valor. Possui estruturas próprias como strings, listas, sets, hashes e pub/sub. O desempenho do Redis é alto porque os dados ficam na memória.
+
+O Pub/Sub permite que vários clientes recebam mensagens ao mesmo tempo, mas não guarda histórico. Se um cliente estiver desconectado, ele perde a mensagem. Por isso, normalmente ele é combinado com listas, garantindo que mensagens antigas possam ser recuperadas.
+
+
 ## Para que é usado?
 É usado principalmente para:
 
@@ -38,17 +43,20 @@ redis-cli
 # * NX no final da sentença não adiciona o campo caso ele já exista
 # * XX no final da sentença altera um campo caso ele já exista, senão existe ele não cria um novo campo
 SET key "value"
+-----
 SET dia_31_otc "Dia do Hallowenn"
 
 # busca o valor pertecente a uma chave
 GET key
-GET dia_31_otc # "Dia do Hallowenn"
+-----
+GET dia_31_otc
 
 # rotorna todas as chaves cadastradas
 KEYS *
 
 # Cria uma lista ordenada baseado no parametro order
 ZADD key order "value"
+-----
 ZADD dia_31 5 "Acordar"
 ZADD dia_31 10 "Almocar"
 ZADD dia_31 11 "Ir trabalhar"
@@ -60,6 +68,7 @@ ZRANGE dia_31 0 -1
 
 # cria uma pilha
 LPUSH key value
+-----
 LPUSH dia_01 "sabado"
 LPUSH dia_01 "comprar potes de vidro"
 LPUSH dia_01 "Sair no date"

@@ -65,6 +65,7 @@ async def chat_ws(ws: WebSocket):
                     # tenta ler uma mensagem do webSocket sem travar num loop.
                     text = await asyncio.wait_for(ws.receive_text(), timeout=0.01)
                 except asyncio.TimeoutError:
+                    # Nenhuma mensagem do usuário, segue o loop até ter
                     continue
 
                 data = json.dumps({
@@ -90,7 +91,7 @@ async def chat_ws(ws: WebSocket):
                 await ws.close(code=1008)
                 return
 
-            # canal único e ordenado (evita duplicar conversa)
+            # Criando uma chave única -->
             users = sorted([username, target])
 
             chat_key = f"private:{users[0]}:{users[1]}:c"
