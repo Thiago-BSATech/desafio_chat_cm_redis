@@ -8,6 +8,8 @@ from app.utils import history_message, redis_pusher
 
 ChatRoute = APIRouter()
 
+responses = ["/global", "/private", "/group"]
+
 @ChatRoute.websocket("/ws")
 async def chat_ws(ws: WebSocket):
 
@@ -15,15 +17,13 @@ async def chat_ws(ws: WebSocket):
 
     username = ws.query_params.get("username")
     if not username:
-        await ws.close(code=1008)
-        return
+        raise Exception("informe o destinatário nos parametros")
 
     try:
         no_response = True
-        responses = ["/global", "/private", "/group"]
-        print("ESCOLHA UM CHAT PARA ENTRAR: ")
-        print(responses)
-        print(
+        
+        await ws.send_text(f"ESCOLHA UM CHAT PARA ENTRAR: {responses}")
+        await ws.send_text(
             """
                 parametros: username(obrigatório para todos os chats), 
                 group: indique o grupo no qual quer se juntar (apenas para o group),
@@ -40,19 +40,24 @@ async def chat_ws(ws: WebSocket):
                 continue
             else:
                 no_response = False
+                
     except WebSocketDisconnect:
         pass
 
     db = ws.app.state.redis
     pubsub = db.pubsub()
 
-    if response == "/global":
-        try:
+    try:
+        if response == "/global":
+
+            chat_key = "global_chat_key"
+            pub_key = "global_chat_pb"
+
             # vai pegar o range de cada mensagem (as 50 ultimas) e guardar na variavel
-            history = await db.lrange("global_chat_c", -50, -1)
+            history = await db.lrange(chat_key, -50, -1)
             await history_message(history, ws)
             # inscreve este usuario no canal chat_global do Redis.
-            await pubsub.subscribe("global_chat_pb")
+            await pubsub.subscribe(pub_key)
 
             while True:
                 
@@ -65,6 +70,7 @@ async def chat_ws(ws: WebSocket):
                     # tenta ler uma mensagem do webSocket sem travar num loop.
                     text = await asyncio.wait_for(ws.receive_text(), timeout=0.01)
                 except asyncio.TimeoutError:
+                    # Nenhuma mensagem do usuário, segue o loop até ter
                     continue
 
                 data = json.dumps({
@@ -73,28 +79,20 @@ async def chat_ws(ws: WebSocket):
                     "time": datetime.datetime.utcnow().strftime("%H:%M")
                 })
                 
-                await redis_pusher(db, "global_chat_c", "global_chat_pb", data)
+                await redis_pusher(db, chat_key, pub_key, data)
 
-        except WebSocketDisconnect:
-            pass
-        finally:
-            await pubsub.unsubscribe("global_chat_pb")
-            await pubsub.close()
-
-    elif response == "/private":
-        try:
+        elif response == "/private":
+    
             target = ws.query_params.get("target")
 
             if not target:
-                print("informe o destinatário nos parametros")
-                await ws.close(code=1008)
-                return
+                raise Exception("informe o destinatário nos parametros")
 
-            # canal único e ordenado (evita duplicar conversa)
+            # Chave entre os dois usuários
             users = sorted([username, target])
 
-            chat_key = f"private:{users[0]}:{users[1]}:c"
-            pub_key = f"private:{users[0]}:{users[1]}:pb"
+            chat_key = f"private:{users[0]}-{users[1]}_key"
+            pub_key = f"private:{users[0]}-{users[1]}_pb"
 
             history = await db.lrange(chat_key, -50, -1)
             await history_message(history, ws)
@@ -119,25 +117,14 @@ async def chat_ws(ws: WebSocket):
                 })
 
                 await redis_pusher(db, chat_key, pub_key, data)
-                
 
-        except WebSocketDisconnect:
-            pass
-        finally:
-            await pubsub.unsubscribe(pub_key)
-            await pubsub.close()
-
-
-    elif response == "/group":
-        try:
-
+        elif response == "/group":
+        
             group = ws.query_params.get("group")
             if not group:
-                print("informe o group nos parametros")
-                await ws.close(code=1008)
-                return
+                raise Exception("informe o group nos parametros")
 
-            chat_key = f"group_chat_c:{group}"
+            chat_key = f"group_chat_keys:{group}"
             pub_key = f"group_chat_pb:{group}"
 
             history = await db.lrange(chat_key, -50, -1)
@@ -163,10 +150,12 @@ async def chat_ws(ws: WebSocket):
                 })
 
                 await redis_pusher(db, chat_key, pub_key, data)
-                
-
-        except WebSocketDisconnect:
-            pass
-        finally:
+                    
+    except Exception:
+        await ws.close()
+    finally:
+        try:
             await pubsub.unsubscribe(pub_key)
             await pubsub.close()
+        except Exception as e:
+            print("erro no pubsub: ", e)
