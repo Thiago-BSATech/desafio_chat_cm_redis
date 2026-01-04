@@ -36,7 +36,7 @@ async def chat_ws(ws: WebSocket):
             response = await ws.receive_text()
 
             if response not in responses:
-                ws.send_text(f"mande uma resposta valida!!: {responses}")
+                await ws.send_text(f"mande uma resposta valida!!: {responses}")
                 continue
             else:
                 no_response = False
